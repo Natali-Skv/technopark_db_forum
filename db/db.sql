@@ -190,36 +190,36 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 
 ---------------------------INDEXES-----------------------------
 
--- CREATE INDEX post_first_path_thread_idx ON posts ((posts.path[1]), thread_id);
--- CREATE INDEX post_first_parent_id_index ON posts ((posts.path[1]), id);
--- CREATE INDEX post_first_parent_index ON posts ((posts.path[1]));
--- CREATE INDEX post_path_index ON posts ((posts.path));
--- CREATE INDEX post_thread_index ON posts (thread_id); -- -
--- CREATE INDEX post_thread_id_index ON posts (thread_id, id); -- +
+CREATE INDEX post_first_path_thread_idx ON posts ((posts.path[1]), thread_id);
+CREATE INDEX post_first_parent_id_index ON posts ((posts.path[1]), id);
+CREATE INDEX post_first_parent_index ON posts ((posts.path[1]));
+CREATE INDEX post_path_index ON posts ((posts.path));
+CREATE INDEX post_thread_index ON posts (thread_id); -- -
+CREATE INDEX post_thread_id_index ON posts (thread_id, id); -- +
 
 CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 
--- CREATE INDEX users_nickname_lower_index ON users (lower(users.nick));
--- CREATE INDEX users_nickname_index ON users ((users.nick));
--- CREATE INDEX users_email_index ON users (lower(email));
+CREATE INDEX users_nickname_lower_index ON users (lower(users.nick));
+CREATE INDEX users_nickname_index ON users ((users.nick));
+CREATE INDEX users_email_index ON users (lower(email));
 
--- CREATE INDEX users_forum_forum_user_index ON forum_users (lower(forum_slug), user_nick);
--- CREATE INDEX users_forum_user_index ON forum_users (user_nick);
+CREATE INDEX users_forum_forum_user_index ON forum_users (lower(forum_slug), user_nick);
+CREATE INDEX users_forum_user_index ON forum_users (user_nick);
 
--- CREATE INDEX thread_slug_lower_index ON threads (lower(slug));
--- CREATE INDEX thread_slug_index ON threads (slug);
--- CREATE INDEX thread_slug_id_index ON threads (lower(slug), id);
--- CREATE INDEX thread_forum_lower_index ON threads (lower(forum_slug)); -- +
--- CREATE INDEX thread_id_forum_index ON threads (id, forum_slug);
--- CREATE INDEX thread_created_index ON threads (created);
+CREATE INDEX thread_slug_lower_index ON threads (lower(slug));
+CREATE INDEX thread_slug_index ON threads (slug);
+CREATE INDEX thread_slug_id_index ON threads (lower(slug), id);
+CREATE INDEX thread_forum_lower_index ON threads (lower(forum_slug)); -- +
+CREATE INDEX thread_id_forum_index ON threads (id, forum_slug);
+CREATE INDEX thread_created_index ON threads (created);
 
--- CREATE INDEX vote_nickname ON votes (lower(user_nick), thread_id, vote); -- +
+CREATE INDEX vote_nickname ON votes (lower(user_nick), thread_id, vote); -- +
 
--- -- NEW INDEXES
--- CREATE INDEX post_path_id_index ON posts (id, (posts.path));
--- CREATE INDEX post_thread_path_id_index ON posts (thread_id, (posts.parent_id), id);
+-- NEW INDEXES
+CREATE INDEX post_path_id_index ON posts (id, (posts.path));
+CREATE INDEX post_thread_path_id_index ON posts (thread_id, (posts.parent_id), id);
 
--- CREATE INDEX users_forum_forum_index ON forum_users (forum_slug); -- +
+CREATE INDEX users_forum_forum_index ON forum_users (forum_slug); -- +
 
 -- -------
 -- drop index if exists post_first_path_thread_idx;
@@ -250,22 +250,22 @@ CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 
 -- UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited
 
-drop index if exists index_post_by_thread_path;
-create unique index if not exists index_post_by_thread_path on posts (thread_id, path);
+-- drop index if exists index_post_by_thread_path;
+-- create unique index if not exists index_post_by_thread_path on posts (thread_id, path);
 
-drop index if exists index_post_by_thread;
-create index if not exists index_post_by_thread on posts (thread_id);
+-- drop index if exists index_post_by_thread;
+-- create index if not exists index_post_by_thread on posts (thread_id);
 
-drop index if exists index_forum_user_by_forum;
-create index if not exists index_forum_user_by_forum on forum_users (forum_slug, user_nick);
+-- drop index if exists index_forum_user_by_forum;
+-- create index if not exists index_forum_user_by_forum on forum_users (forum_slug, user_nick);
 
-drop index if exists index_thread_by_slug;
-create index if not exists index_thread_by_slug on threads (slug);
+-- drop index if exists index_thread_by_slug;
+-- create index if not exists index_thread_by_slug on threads (slug);
 
-drop index if exists index_thread_by_forum;
-create index if not exists index_thread_by_forum on threads (forum_slug);
+-- drop index if exists index_thread_by_forum;
+-- create index if not exists index_thread_by_forum on threads (forum_slug);
 
-drop index if exists index_thread_by_created;
-create index if not exists index_thread_by_created on threads (created);
+-- drop index if exists index_thread_by_created;
+-- create index if not exists index_thread_by_created on threads (created);
 
 vacuum analyze;
