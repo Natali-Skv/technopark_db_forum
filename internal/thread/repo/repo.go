@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
@@ -33,36 +34,42 @@ func (r *Repo) Create(thread *models.Thread) (*models.Thread, error) {
 func (r *Repo) GetBySlugOrId(slug string, id int) (*models.Thread, error) {
 	thread := &models.Thread{}
 	var created time.Time
-	err := r.Conn.QueryRow(`SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE slug =$1 OR id=$2`, slug, id).Scan(&thread.Id, &thread.Slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
-	thread.Created = strfmt.DateTime(created.UTC()).String()
+	var threadSlug sql.NullString
+	err := r.Conn.QueryRow(`SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE slug =$1 OR id=$2`, slug, id).Scan(&thread.Id, &threadSlug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
 	if err != nil {
 		return nil, err
 	}
+	thread.Created = strfmt.DateTime(created.UTC()).String()
+	thread.Slug = threadSlug.String
 	return thread, nil
 }
 
 func (r *Repo) UpdateThread(thread *models.Thread) (*models.Thread, error) {
 	var created time.Time
-	err := r.Conn.QueryRow(`UPDATE threads SET title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message) WHERE $3!=0 AND id=$3 OR $4!='' AND slug=$4 RETURNING id, slug, title, author_nick, forum_slug, message, votes, created`, thread.Title, thread.Message, thread.Id, thread.Slug).Scan(&thread.Id, &thread.Slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
-	thread.Created = strfmt.DateTime(created.UTC()).String()
+	var slug sql.NullString
+	err := r.Conn.QueryRow(`UPDATE threads SET title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message) WHERE $3!=0 AND id=$3 OR $4!='' AND slug=$4 RETURNING id, slug, title, author_nick, forum_slug, message, votes, created`, thread.Title, thread.Message, thread.Id, thread.Slug).Scan(&thread.Id, &slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
 	if err != nil {
 		return nil, err
 	}
+	thread.Created = strfmt.DateTime(created.UTC()).String()
+	thread.Slug = slug.String
 	return thread, nil
 }
 
 func (r *Repo) Vote(vote *models.Vote) (*models.Thread, error) {
 	thread := &models.Thread{}
 	var created time.Time
-	// fmt.Println(`INSERT INTO votes(user_nick, thread_id, vote) VALUES (` + vote.Nick + `,(SELECT id FROM threads WHERE slug=` + vote.ThreadSlug + ` OR id=` + strconv.Itoa(int(vote.ThreadId)) + `),` + strconv.Itoa(vote.Voice) + `) ON CONFLICT(user_nick, thread_id) DO UPDATE SET vote=` + strconv.Itoa(vote.Voice))
 	_, err := r.Conn.Exec(`INSERT INTO votes(user_nick, thread_id, vote) VALUES ($1,   			   (SELECT id FROM threads WHERE slug=$2 OR id=$3),$4) ON CONFLICT(user_nick, thread_id) DO UPDATE SET vote=$4`, vote.Nick, vote.ThreadSlug, vote.ThreadId, vote.Voice)
 	if err != nil {
 		return nil, err
 	}
-	err = r.Conn.QueryRow(`SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE slug = $1 OR id = $2`, vote.ThreadSlug, vote.ThreadId).Scan(&thread.Id, &thread.Slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
-	thread.Created = strfmt.DateTime(created.UTC()).String()
+	var slug sql.NullString
+	err = r.Conn.QueryRow(`SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE slug = $1 OR id = $2`, vote.ThreadSlug, vote.ThreadId).Scan(&thread.Id, &slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
 	if err != nil {
 		return nil, err
 	}
+	thread.Created = strfmt.DateTime(created.UTC()).String()
+	thread.Slug = slug.String
+
 	return thread, nil
 }

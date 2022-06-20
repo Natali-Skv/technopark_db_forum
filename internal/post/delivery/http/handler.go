@@ -34,12 +34,6 @@ func (h *Handler) CreatePost(ctx echo.Context) error {
 	if err := ctx.Bind(&posts); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)
 	}
-	// if len(posts) == 0 {
-	// 	if !h.Repo.HasThreadBySlugOrId() {
-	// 		return echo.NewHTTPError(http.StatusNotFound, errors.NO_THREAD+posts[0].ThreadSlug+strconv.Itoa(int(posts[0].ThreadId)))
-	// 	}
-	// 	return ctx.JSON(http.StatusCreated, posts)
-	// }
 	threadSlugOrId := ctx.Param(SlugOrIdCtxKey)
 	threadId, _ := strconv.Atoi(threadSlugOrId)
 

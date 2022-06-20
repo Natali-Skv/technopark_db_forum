@@ -36,12 +36,14 @@ func main() {
 		AcquireTimeout: 0,
 	}
 	connPool, err := pgx.NewConnPool(config)
+	fmt.Println(connPool.Prepare("update_post", "UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited;"))
+
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	e := echo.New()
-	// e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	// e.Use(middleware.Logger())
 	userRepo := userRepository.NewRepo(connPool)
 	userHandler := userHandler.NewHandler(userRepo)
 	forumRepo := forumRepository.NewRepo(connPool)

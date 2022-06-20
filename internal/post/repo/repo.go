@@ -23,7 +23,6 @@ func NewRepo(conn *pgx.ConnPool) *Repo {
 func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]models.Post, error) {
 	var forumSlug string
 	err := r.Conn.QueryRow(`SELECT forum_slug, id FROM threads WHERE slug=$1 OR id=$2`, threadSlug, threadId).Scan(&forumSlug, &threadId)
-	// err = r.Conn.Err (`SELECT forum_slug, id FROM threads WHERE slug=$1 OR id=$2`, posts[0].ThreadSlug, posts[0].ThreadId)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +139,6 @@ func (r *Repo) getThreadPostsTree(threadSlug string, threadId int, desc bool, li
 	}
 	if desc {
 		query += ` ORDER BY path DESC `
-		// query += ` ORDER BY path[1] DESC, path ASC `
 	} else {
 		query += ` ORDER BY path ASC `
 	}
@@ -255,6 +253,7 @@ func (r *Repo) GetPostByIdRelated(id int, related []string) (*models.Post, *mode
 
 	var created time.Time
 	var threadCreated time.Time
+	var threadSlug sql.NullString
 	parentId := sql.NullInt64{}
 
 	queryJoin := ""
@@ -271,7 +270,7 @@ func (r *Repo) GetPostByIdRelated(id int, related []string) (*models.Post, *mode
 			thread = &models.Thread{}
 			queryJoin += `, t.id, t.slug, t.title, t.author_nick, t.forum_slug, t.message, t.votes, t.created`
 			queryJoinOn += ` JOIN threads t ON p.thread_id = t.id`
-			scanArgs = append(scanArgs, &thread.Id, &thread.Slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &threadCreated)
+			scanArgs = append(scanArgs, &thread.Id, &threadSlug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &threadCreated)
 		case "forum":
 			forum = &models.Forum{}
 			queryJoin += `, f.slug, f.title, f.posts, f.threads, f.author_nick`
@@ -279,6 +278,7 @@ func (r *Repo) GetPostByIdRelated(id int, related []string) (*models.Post, *mode
 			scanArgs = append(scanArgs, &forum.Slug, &forum.Title, &forum.Posts, &forum.Threads, &forum.UserNick)
 		}
 	}
+
 	err := r.Conn.QueryRow(`SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited`+queryJoin+` FROM posts p`+queryJoinOn+` WHERE p.id=$1`, id).Scan(scanArgs...)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -288,6 +288,7 @@ func (r *Repo) GetPostByIdRelated(id int, related []string) (*models.Post, *mode
 
 	if thread != nil {
 		thread.Created = strfmt.DateTime(threadCreated.UTC()).String()
+		thread.Slug = threadSlug.String
 	}
 
 	return post, user, forum, thread, nil
@@ -297,7 +298,9 @@ func (r *Repo) UpdatePost(post *models.Post) (*models.Post, error) {
 	var created time.Time
 	parentId := sql.NullInt64{}
 
-	err := r.Conn.QueryRow(`UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited`, post.Message, post.Id).Scan(&post.Id, &parentId, &post.AuthorNick, &post.ForumSlug, &post.ThreadId, &post.Message, &created, &post.IsEdited)
+	// err := r.Conn.QueryRow(`UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited`, post.Message, post.Id).Scan(&post.Id, &parentId, &post.AuthorNick, &post.ForumSlug, &post.ThreadId, &post.Message, &created, &post.IsEdited)
+	err := r.Conn.QueryRow(`EXECUTE update_post($1, $2)`, post.Message, post.Id).Scan(&post.Id, &parentId, &post.AuthorNick, &post.ForumSlug, &post.ThreadId, &post.Message, &created, &post.IsEdited)
+	// fmt.Println(err.Error())
 	post.Created = strfmt.DateTime(created.UTC()).String()
 	post.ParentId = int(parentId.Int64)
 	if err != nil {

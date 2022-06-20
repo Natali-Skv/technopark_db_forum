@@ -10,7 +10,4 @@ type Repo interface {
 	CheckThreadBySlugOrId(slug string, id int) (bool, error)
 	GetPostByIdRelated(id int, related []string) (*models.Post, *models.User, *models.Forum, *models.Thread, error)
 	UpdatePost(post *models.Post) (*models.Post, error)
-	// GetBySlug(slug string) (*models.Post, error)
-	// CheckBySlug(slug string) (bool, error)
-	// GetForumThreads(slug string, desc bool, limit int, since string) ([]models.Thread, error)
 }

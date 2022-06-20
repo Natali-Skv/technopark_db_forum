@@ -32,6 +32,6 @@ func (r *Repo) Status() (*models.Status, error) {
 }
 
 func (r *Repo) TruncateDB() error {
-	_, err := r.Conn.Exec(`TRUNCATE users, forums, threads, posts, votes`)
+	_, err := r.Conn.Exec(`TRUNCATE forum_users, users, forums, threads, posts, votes`)
 	return err
 }
