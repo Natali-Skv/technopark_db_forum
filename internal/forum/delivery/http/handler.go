@@ -40,7 +40,7 @@ func (h *Handler) CreateForum(ctx echo.Context) error {
 				return echo.NewHTTPError(http.StatusInternalServerError, errors.INTERNAL_SERVER_ERROR)
 			}
 			return ctx.JSON(http.StatusConflict, conflictForum)
-		case "23502":
+		case "AAAA1":
 			return echo.NewHTTPError(http.StatusNotFound, errors.NOT_FOUND_USER_BY_NICK+forum.UserNick)
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, errors.INTERNAL_SERVER_ERROR)

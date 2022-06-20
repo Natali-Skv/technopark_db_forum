@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"database/sql"
 	"strconv"
 	"time"
 
@@ -18,7 +19,7 @@ func NewRepo(conn *pgx.ConnPool) *Repo {
 }
 func (r *Repo) Create(forum *models.Forum) (*models.Forum, error) {
 	err := r.Conn.QueryRow(`INSERT into forums(title, slug, author_nick) 
-									VALUES ($1,$2,(SELECT nick FROM users WHERE nick=$3)) RETURNING author_nick`, forum.Title, forum.Slug, forum.UserNick).Scan(&forum.UserNick)
+									VALUES ($1,$2,$3) RETURNING author_nick`, forum.Title, forum.Slug, forum.UserNick).Scan(&forum.UserNick)
 	if err != nil {
 		return nil, err
 	}
@@ -70,51 +71,50 @@ func (r *Repo) GetForumThreads(slug string, desc bool, limit int, since string) 
 	for threadRows.Next() {
 		thread := models.Thread{}
 		var created time.Time
-		err = threadRows.Scan(&thread.Id, &thread.Slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
+		var slug sql.NullString
+		err = threadRows.Scan(&thread.Id, &slug, &thread.Title, &thread.AuthorNick, &thread.ForumSlug, &thread.Message, &thread.Votes, &created)
 		if err != nil {
 			return nil, err
 		}
 		thread.Created = strfmt.DateTime(created.UTC()).String()
+		thread.Slug = slug.String
 		threadsResp = append(threadsResp, thread)
 	}
 	return threadsResp, nil
 }
 
 func (r *Repo) GetForumUsers(slug string, desc bool, limit int, since string) ([]models.User, error) {
-	// SELECT author_nick FROM threads WHERE forum_slug=$1 UNION SELECT author_nick FROM posts WHERE forum_slug=$1
-	// SELECT * FROM (SELECT author_nick FROM threads WHERE forum_slug='V3ZMQ4sWh3Ju8' UNION DISTINCT SELECT author_nick FROM posts WHERE forum_slug='V3ZMQ4sWh3Ju8') t JOIN users u ON t.author_nick=u.nick;
-	//SELECT name,nick,email,about FROM (SELECT author_nick FROM threads WHERE forum_slug='V3ZMQ4sWh3Ju8' UNION DISTINCT SELECT author_nick FROM posts WHERE forum_slug='V3ZMQ4sWh3Ju8') t JOIN users u ON t.author_nick=u.nick;
-
 	args := make([]interface{}, 0, 4)
 	args = append(args, slug)
 	nextPlaceholderNum := 2
 
-	sinceQuery := ""
-	orderQuery := ""
+	query := `SELECT name,nick,email,about FROM forum_users fu JOIN users u ON fu.user_nick=u.nick WHERE forum_slug=$1`
 
 	if desc {
 		if since != "" {
-			sinceQuery += ` AND author_nick < $` + strconv.Itoa(nextPlaceholderNum)
+			query += ` AND u.nick < $` + strconv.Itoa(nextPlaceholderNum)
 			args = append(args, since)
 			nextPlaceholderNum++
 		}
-		orderQuery = ` ORDER BY lower(nick) DESC`
+		query += ` ORDER BY lower(nick) DESC`
 	} else {
 		if since != "" {
-			sinceQuery += ` AND author_nick > $` + strconv.Itoa(nextPlaceholderNum)
+			query += ` AND u.nick > $` + strconv.Itoa(nextPlaceholderNum)
 			args = append(args, since)
 			nextPlaceholderNum++
 		}
-		orderQuery = ` ORDER BY nick`
+		query += ` ORDER BY u.nick`
 	}
 
 	if limit != 0 {
-		orderQuery += ` LIMIT $` + strconv.Itoa(nextPlaceholderNum)
+		query += ` LIMIT $` + strconv.Itoa(nextPlaceholderNum)
 		nextPlaceholderNum++
 		args = append(args, limit)
 	}
 
-	userRows, err := r.Conn.Query(`SELECT name,nick,email,about FROM (SELECT author_nick FROM threads WHERE forum_slug=$1`+sinceQuery+` UNION DISTINCT SELECT author_nick FROM posts WHERE forum_slug=$1`+sinceQuery+`) t JOIN users u ON t.author_nick=u.nick `+orderQuery, args...)
+	// SELECT name,nick,email,about FROM forum_users fu JOIN u ON fu.user_nick=u.nick WHERE forum_slug=$1
+	// userRows, err := r.Conn.Query(`SELECT name,nick,email,about FROM (SELECT author_nick FROM threads WHERE forum_slug=$1`+sinceQuery+` UNION DISTINCT SELECT author_nick FROM posts WHERE forum_slug=$1`+sinceQuery+`) t JOIN users u ON t.author_nick=u.nick `+orderQuery, args...)
+	userRows, err := r.Conn.Query(query, args...)
 	defer userRows.Close()
 
 	if err != nil {
