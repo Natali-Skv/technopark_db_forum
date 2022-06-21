@@ -1,5 +1,7 @@
 module github.com/Natali-Skv/technopark_db_forum
+
 go 1.17
+
 require (
 	github.com/Bowery/prompt v0.0.0-20190916142128-fa8279994f75 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
@@ -21,6 +23,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/jackc/pgx v3.6.2+incompatible // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/labstack/echo-contrib v0.12.0 // indirect
 	github.com/labstack/echo/v4 v4.7.2 // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/mailcourses/technopark-dbms-forum v0.3.1-0.20211122133419-7f25514dd32e // indirect

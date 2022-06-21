@@ -19,6 +19,8 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/labstack/echo-contrib/pprof"
 )
 
 func main() {
@@ -42,6 +44,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 	e := echo.New()
+	pprof.Register(e)
 	e.Use(middleware.Recover())
 	// e.Use(middleware.Logger())
 	userRepo := userRepository.NewRepo(connPool)
