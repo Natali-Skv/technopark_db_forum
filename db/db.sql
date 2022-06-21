@@ -263,37 +263,50 @@ CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 
 -- UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited
 
-drop index if exists index_post_by_thread_path;
-create unique index if not exists index_post_by_thread_path on posts (thread_id, path);
+-- drop index if exists index_post_by_thread_path;
+-- create unique index if not exists index_post_by_thread_path on posts (thread_id, path);
 
-drop index if exists index_post_by_thread;
-create index if not exists index_post_by_thread on posts (thread_id);
+-- drop index if exists index_post_by_thread;
+-- create index if not exists index_post_by_thread on posts (thread_id);
 
-drop index if exists index_forum_user_by_forum;
-create index if not exists index_forum_user_by_forum on forum_users (forum_id, user_id);
 
-drop index if exists index_thread_by_slug;
-create index if not exists index_thread_by_slug on threads (slug);
+-- drop index if exists index_thread_by_slug;
 
-drop index if exists index_thread_by_forum;
-create index if not exists index_thread_by_forum on threads (forum_slug);
+-- drop index if exists index_thread_by_forum;
+-- create index if not exists index_thread_by_forum on threads (forum_slug);
 
-drop index if exists index_thread_by_created;
-create index if not exists index_thread_by_created on threads (created);
+-- drop index if exists index_thread_by_created;
+-- create index if not exists index_thread_by_created on threads (created);
+
+------------------
+
+-- create index if not exists user_email_idx on users using hash (email);
+-- create index if not exists user_nick_idx on users using hash (nick);
+
+-- create index if not exists forum_slug_idx on forums using hash (slug);
+
+-- create index if not exists thread_slug_idx on threads using hash (slug);
+
+-- drop index if exists index_forum_user_by_forum;
+-- create index if not exists forum_users_idx on forum_users (forum_id, user_id);
+--------------
+
+CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick); -- common, with hash faster than with default b-tree
+CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email); -- GetUsersByEmailOrNickname
+
+CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug); -- common, with hash faster than with default b-tree
+
+CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); -- GetForumThreadBySlug
+CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); -- common
+CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created); -- GetForumThreads
+
+CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path); -- GetPostsFlat (first column), GetPostsTree, GetPostsParentTree
+CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path); -- GetPostsParentTree, crucial
+
+CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id); -- GetForumUsers
+
+-- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id); -- VoteExists
+-- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (nickname, thread, voice); -- UpdateVote
+
 
 vacuum analyze;
-
-
-
-
--- PREPARE get_forum_users AS 
--- SELECT name,nick,email,about FROM forum_users fu JOIN users u ON fu.user_id=u.id 
---     WHERE ((fu.forum_id=(SELECT id FROM forums WHERE slug=$1)) AND (($2='') OR (u.nick>$2)) )
---     ORDER BY u.nick LIMIT NULLIF($3,0);
-
-
-
-
--- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM 
-	-- (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1] DESC) FROM posts 
- 		-- WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] < (SELECT path[1] FROM posts WHERE id=$6)) ORDER BY path[1] desc, path, id) t WHERE dense_rank<=$7
