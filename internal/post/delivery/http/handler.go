@@ -50,6 +50,7 @@ func (h *Handler) CreatePost(ctx echo.Context) error {
 				return echo.NewHTTPError(http.StatusNotFound, errors.NOT_FOUND_POST_AUTHOR_BY_NICK+posts[0].AuthorNick)
 			}
 		} else {
+
 			return echo.NewHTTPError(http.StatusInternalServerError, errors.INTERNAL_SERVER_ERROR)
 		}
 	}

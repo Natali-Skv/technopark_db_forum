@@ -150,7 +150,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
         RETURN NULL;
     END IF;
-    UPDATE forums SET posts = posts + 1 WHERE slug = NEW.forum_slug RETURNING slug,id INTO NEW.forum_slug,NEW.forum_id ;
+    UPDATE forums SET posts = posts + 1 WHERE id = NEW.forum_id;
     IF (NEW.parent_id IS NOT NULL) AND (NEW.parent_id != 0) THEN 
         SELECT thread_id=NEW.thread_id INTO correct_parent FROM posts WHERE id = NEW.parent_id;
         IF NOT FOUND OR NOT correct_parent  THEN
@@ -270,7 +270,7 @@ drop index if exists index_post_by_thread;
 create index if not exists index_post_by_thread on posts (thread_id);
 
 drop index if exists index_forum_user_by_forum;
-create index if not exists index_forum_user_by_forum on forum_users (forum_slug, user_nick);
+create index if not exists index_forum_user_by_forum on forum_users (forum_id, user_id);
 
 drop index if exists index_thread_by_slug;
 create index if not exists index_thread_by_slug on threads (slug);

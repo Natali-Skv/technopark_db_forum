@@ -18,11 +18,15 @@ type Repo struct {
 }
 
 func NewRepo(conn *pgx.ConnPool) *Repo {
+	conn.Prepare("get_forum_and_thread", "SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1 OR id=$2")
+	conn.Prepare("get_thread_posts_flat", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id>$6) ORDER BY created,id  LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_flat_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id<$6) ORDER BY created DESC,id DESC LIMIT NULLIF($7,0)")
 	return &Repo{Conn: conn}
 }
 func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]models.Post, error) {
 	var forumSlug string
-	err := r.Conn.QueryRow(`SELECT forum_slug, id FROM threads WHERE slug=$1 OR id=$2`, threadSlug, threadId).Scan(&forumSlug, &threadId)
+	var forumId int64
+	err := r.Conn.QueryRow("EXECUTE get_forum_and_thread($1,$2)", threadSlug, threadId).Scan(&forumSlug, &forumId, &threadId)
 	if err != nil {
 		return nil, err
 	}
@@ -30,19 +34,19 @@ func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]m
 	if len(posts) == 0 {
 		return []models.Post{}, nil
 	}
-	query := `INSERT into posts(author_nick, parent_id,  message, forum_slug, thread_id) VALUES `
-	fieldCount := 5
-	args := make([]interface{}, 0, len(posts)*5)
+	query := `INSERT into posts(author_nick, parent_id, message, forum_slug, forum_id, thread_id) VALUES `
+	fieldCount := 6
+	args := make([]interface{}, 0, len(posts)*fieldCount)
 	i := 0
 	var post models.Post
 	for i, post = range posts[:len(posts)-1] {
-		query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5)
-		args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, threadId)
+		query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
+		args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
 		i += 1
 	}
 	post = posts[len(posts)-1]
-	query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5)
-	args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, threadId)
+	query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
+	args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
 	postRows, err := r.Conn.Query(query, args...)
 	defer postRows.Close()
 	if err != nil {
@@ -78,31 +82,16 @@ func (r *Repo) GetThreadPosts(threadSlug string, threadId int, desc bool, limit 
 		return nil, goErrors.New(errors.UNKNOWN_SORT_TYPE)
 	}
 }
+
 func (r *Repo) getThreadPostsFlat(threadSlug string, threadId int, desc bool, limit int, since int) ([]models.Post, error) {
-	args := make([]interface{}, 0, 3)
-	query := `SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $1 OR ($2 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$2)) `
-	args = append(args, threadId, threadSlug)
-	nextPlaceholderNum := 3
-	if since != 0 && desc {
-		query += `AND id<$` + strconv.Itoa(nextPlaceholderNum)
-		args = append(args, since)
-		nextPlaceholderNum++
-	}
-	if since != 0 && !desc {
-		query += `AND id>$` + strconv.Itoa(nextPlaceholderNum)
-		args = append(args, since)
-		nextPlaceholderNum++
-	}
+	var threadRows *pgx.Rows
+	var err error
 	if desc {
-		query += ` ORDER BY created DESC,id DESC`
+		threadRows, err = r.Conn.Query("EXECUTE get_thread_posts_flat_desc($1,$2,$3,$4,$5,$6,$7)", threadId, threadId, threadSlug, threadSlug, since, since, limit)
 	} else {
-		query += ` ORDER BY created,id ASC`
+		threadRows, err = r.Conn.Query("EXECUTE get_thread_posts_flat($1,$2,$3,$4,$5,$6,$7)", threadId, threadId, threadSlug, threadSlug, since, since, limit)
 	}
-	if limit != 0 {
-		query += ` LIMIT $` + strconv.Itoa(nextPlaceholderNum)
-		args = append(args, limit)
-	}
-	threadRows, err := r.Conn.Query(query, args...)
+
 	defer threadRows.Close()
 	if err != nil {
 		return nil, err
@@ -122,6 +111,51 @@ func (r *Repo) getThreadPostsFlat(threadSlug string, threadId int, desc bool, li
 	}
 	return postsResp, nil
 }
+
+// func (r *Repo) getThreadPostsFlat(threadSlug string, threadId int, desc bool, limit int, since int) ([]models.Post, error) {
+// 	args := make([]interface{}, 0, 3)
+// 	query := `SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $1 OR ($2 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$2)) `
+// 	args = append(args, threadId, threadId, threadSlug, threadSlug)
+// 	nextPlaceholderNum := 3
+// 	if since != 0 && desc {
+// 		query += `AND id<$` + strconv.Itoa(nextPlaceholderNum)
+// 		args = append(args, since)
+// 		nextPlaceholderNum++
+// 	}
+// 	if since != 0 && !desc {
+// 		query += `AND id>$` + strconv.Itoa(nextPlaceholderNum)
+// 		args = append(args, since)
+// 		nextPlaceholderNum++
+// 	}
+// 	if desc {
+// 		query += ` ORDER BY created DESC,id DESC`
+// 	} else {
+// 		query += ` ORDER BY created,id`
+// 	}
+// 	if limit != 0 {
+// 		query += ` LIMIT $` + strconv.Itoa(nextPlaceholderNum)
+// 		args = append(args, limit)
+// 	}
+// 	threadRows, err := r.Conn.Query(query, args...)
+// 	defer threadRows.Close()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	postsResp := make([]models.Post, 0)
+// 	for threadRows.Next() {
+// 		post := models.Post{}
+// 		parentId := sql.NullInt64{}
+// 		var created time.Time
+// 		err = threadRows.Scan(&post.Id, &parentId, &post.AuthorNick, &post.ForumSlug, &post.ThreadId, &post.Message, &created, &post.IsEdited)
+// 		post.ParentId = int(parentId.Int64)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		post.Created = strfmt.DateTime(created.UTC()).String()
+// 		postsResp = append(postsResp, post)
+// 	}
+// 	return postsResp, nil
+// }
 func (r *Repo) getThreadPostsTree(threadSlug string, threadId int, desc bool, limit int, since int) ([]models.Post, error) {
 	args := make([]interface{}, 0, 3)
 	query := `SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1 != 0 AND thread_id = $1 OR $2 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$2)) `
