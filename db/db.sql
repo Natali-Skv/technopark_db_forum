@@ -290,3 +290,10 @@ vacuum analyze;
 -- SELECT name,nick,email,about FROM forum_users fu JOIN users u ON fu.user_id=u.id 
 --     WHERE ((fu.forum_id=(SELECT id FROM forums WHERE slug=$1)) AND (($2='') OR (u.nick>$2)) )
 --     ORDER BY u.nick LIMIT NULLIF($3,0);
+
+
+
+
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM 
+	-- (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1] DESC) FROM posts 
+ 		-- WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] < (SELECT path[1] FROM posts WHERE id=$6)) ORDER BY path[1] desc, path, id) t WHERE dense_rank<=$7
