@@ -1,6 +1,8 @@
 package userRepo
 
 import (
+	"fmt"
+
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
 	"github.com/jackc/pgx"
 )
@@ -10,25 +12,20 @@ type Repo struct {
 }
 
 func NewRepo(conn *pgx.ConnPool) *Repo {
+	conn.Prepare("status", " SELECT COUNT(*), sum(posts), sum(threads) FROM forums")
+	conn.Prepare("status_users", " SELECT COUNT(*) FROM users")
 	return &Repo{Conn: conn}
 }
 
+// просуммировать одновременно posts + threads
 func (r *Repo) Status() (*models.Status, error) {
 	status := &models.Status{}
-	countRows, err := r.Conn.Query(`SELECT COUNT(*) FROM forums UNION ALL SELECT COUNT(*) FROM posts UNION ALL SELECT COUNT(*) FROM threads UNION ALL SELECT COUNT(*) FROM users`)
+	err := r.Conn.QueryRow("EXECUTE status").Scan(&status.Forums, &status.Posts, &status.Threads)
+	err = r.Conn.QueryRow("EXECUTE status_users").Scan(&status.Users)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, err
 	}
-
-	defer countRows.Close()
-	countRows.Next()
-	countRows.Scan(&status.Forums)
-	countRows.Next()
-	countRows.Scan(&status.Posts)
-	countRows.Next()
-	countRows.Scan(&status.Threads)
-	countRows.Next()
-	countRows.Scan(&status.Users)
 	return status, nil
 }
 
