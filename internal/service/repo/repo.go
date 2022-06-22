@@ -20,6 +20,7 @@ func (r *Repo) Status() (*models.Status, error) {
 		return nil, err
 	}
 
+	defer countRows.Close()
 	countRows.Next()
 	countRows.Scan(&status.Forums)
 	countRows.Next()
