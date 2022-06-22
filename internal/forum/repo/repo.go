@@ -29,6 +29,7 @@ func (r *Repo) Create(forum *models.Forum) (*models.Forum, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return forum, nil
 }
 func (r *Repo) GetBySlug(slug string) (*models.Forum, error) {

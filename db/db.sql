@@ -1,5 +1,6 @@
 
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION pg_prewarm;
 DROP TABLE IF EXISTS forum_users CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS forums CASCADE;
@@ -303,13 +304,13 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 --------------
 
 
-CREATE INDEX IF NOT EXISTS user_nick_idx ON users USING hash (nick);
+CREATE INDEX IF NOT EXISTS user_nick_idx ON users (nick);
 CREATE INDEX IF NOT EXISTS user_email_idx ON users USING hash (email); 
 
-CREATE INDEX IF NOT EXISTS forum_slug_idx ON forums USING hash(slug);
+CREATE INDEX IF NOT EXISTS forum_slug_idx ON forums (slug);
 CREATE INDEX IF NOT EXISTS thread_slug_idx ON threads USING hash(slug); 
 
-CREATE INDEX IF NOT EXISTS thread_forum_slug_idx ON threads USING hash(forum_slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_slug_idx ON threads (forum_slug); 
 CREATE INDEX IF NOT EXISTS thread_forum_created_idx ON threads (forum_slug, created);
 
 CREATE INDEX IF NOT EXISTS post_thread_idx ON posts (thread_id);
@@ -322,8 +323,6 @@ CREATE INDEX IF NOT EXISTS forum_users_idx ON forum_users (forum_id, user_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS vote ON votes (user_nick, thread_id);
 CREATE UNIQUE INDEX IF NOT EXISTS vote_full ON votes (user_nick, thread_id, vote); 
-
-
 
 
 -- CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick);
