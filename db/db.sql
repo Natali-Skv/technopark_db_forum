@@ -221,7 +221,7 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 -- CREATE INDEX post_thread_index ON posts (thread_id); -- -
 -- CREATE INDEX post_thread_id_index ON posts (thread_id, id); -- +
 
-CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
+-- CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 
 -- CREATE INDEX users_nickname_lower_index ON users (lower(users.nick));
 -- CREATE INDEX users_nickname_index ON users ((users.nick));
