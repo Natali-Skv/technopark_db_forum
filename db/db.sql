@@ -302,22 +302,48 @@ CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 -- create index if not exists forum_users_idx on forum_users (forum_id, user_id);
 --------------
 
-CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick);
-CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email);
+-- SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1 OR id=$2
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id>$6) ORDER BY created,id  LIMIT NULLIF($7,0)
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id<$6) ORDER BY created DESC,id DESC LIMIT NULLIF($7,0)
 
-CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug);
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1] DESC) FROM posts WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] < (SELECT path[1] FROM posts WHERE id=$6))) t WHERE dense_rank<=$7 ORDER BY path[1] desc, path")
+-- osts_parent_tree_limit", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1]) FROM posts WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] > (SELECT path[1] FROM posts WHERE id=$6))) t WHERE dense_rank<=$7 ORDER BY path")
+-- _thread", "SELECT exists(SELECT 1 FROM threads WHERE slug =$1 OR id=$2)")
+-- , "UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited;")
+-- SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE id=$1")
+-- r", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, u.name, u.nick, u.email, u.about FROM posts p JOIN users u ON p.author_id = u.id WHERE p.id=$1")
+-- ead", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, t.id, t.slug, t.title, t.author_nick, t.forum_slug, t.message, t.votes, t.created FROM posts p JOIN threads t ON p.thread_id = t.id WHERE p.id=$1")
+-- r_thread", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, u.name, u.nick, u.email, u.about, t.id, t.slug, t.title, t.author_nick, t.forum_slug, t.message, t.votes, t.created FROM posts p JOIN threads t ON p.thread_id = t.id JOIN users u ON p.author_id = u.id WHERE p.id=$1")
+-- um", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, f.slug, f.title, f.posts, f.threads, f.author_nick FROM posts p JOIN forums f ON p.forum_id = f.id WHERE p.id=$1")
+-- r_forum", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, u.name, u.nick, u.email, u.about, f.slug, f.title, f.posts, f.threads, f.author_nick FROM posts p JOIN forums f ON p.forum_id = f.id JOIN users u ON p.author_id = u.id WHERE p.id=$1")
+-- ead_forum", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, t.id, t.slug, t.title, t.author_nick, t.forum_slug, t.message, t.votes, t.created, f.slug, f.title, f.posts, f.threads, f.author_nick FROM posts p JOIN threads t ON p.thread_id = t.id JOIN forums f ON p.forum_id = f.id WHERE p.id=$1")
+-- r_thread_forum", "SELECT p.id, p.parent_id, p.author_nick, p.forum_slug, p.thread_id, p.message, p.created, p.is_edited, u.name, u.nick, u.email, u.about, t.id, t.slug, t.title, t.author_nick, t.forum_slug, t.message, t.votes, t.created, f.slug, f.title, f.posts, f.threads, f.author_nick FROM posts p JOIN users u ON p.author_id = u.id JOIN threads t ON p.thread_id = t.id JOIN forums f ON p.forum_id = f.id WHERE p.id=$1")
 
-CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); 
-CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); 
-CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created);
 
-CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path);
-CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path);
 
-CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id);
+CREATE INDEX IF NOT EXISTS user_nick_idx ON users (nick);
+CREATE INDEX IF NOT EXISTS user_email_idx ON users (email);
 
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id);
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (user_nick, thread_id, vote); 
+CREATE INDEX IF NOT EXISTS forum_slug_idx ON forums (slug);
+
+CREATE INDEX IF NOT EXISTS thread_slug_idx ON threads (slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_slug_idx ON threads (forum_slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_created_idx ON threads (forum_slug, created);
+
+CREATE INDEX IF NOT EXISTS post_thread_idx ON posts (thread_id);
+CREATE INDEX IF NOT EXISTS post_created_id_idx ON posts (created,id);
+CREATE INDEX IF NOT EXISTS post_thread_created_id_idx ON posts (thread_id,created,id);
+CREATE INDEX IF NOT EXISTS post_thread_path_idx ON posts (thread_id, path);
+CREATE INDEX IF NOT EXISTS post_thread_path1_idx ON posts (thread_id,(path[1]), path);
+
+CREATE INDEX IF NOT EXISTS forum_users_idx ON forum_users (forum_id, user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS vote ON votes (user_nick, thread_id);
+CREATE UNIQUE INDEX IF NOT EXISTS vote_full ON votes (user_nick, thread_id, vote); 
 
 
 vacuum analyze;

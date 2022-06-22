@@ -24,7 +24,8 @@ const (
 )
 
 func NewRepo(conn *pgx.ConnPool) *Repo {
-	conn.Prepare("get_forum_and_thread", "SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1 OR id=$2")
+	conn.Prepare("get_forum_and_thread_by_slug", "SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1")
+	conn.Prepare("get_forum_and_thread_by_id", "SELECT forum_slug, forum_id, id FROM threads WHERE id=$1")
 	conn.Prepare("get_thread_posts_flat", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id>$6) ORDER BY created,id  LIMIT NULLIF($7,0)")
 	conn.Prepare("get_thread_posts_flat_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id<$6) ORDER BY created DESC,id DESC LIMIT NULLIF($7,0)")
 	conn.Prepare("get_thread_posts_tree", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)")
@@ -49,7 +50,12 @@ func NewRepo(conn *pgx.ConnPool) *Repo {
 func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]models.Post, error) {
 	var forumSlug string
 	var forumId int64
-	err := r.Conn.QueryRow("EXECUTE get_forum_and_thread($1,$2)", threadSlug, threadId).Scan(&forumSlug, &forumId, &threadId)
+	var err error
+	if threadId != 0 {
+		err = r.Conn.QueryRow("EXECUTE get_forum_and_thread_by_id($1)", threadId).Scan(&forumSlug, &forumId, &threadId)
+	} else {
+		err = r.Conn.QueryRow("EXECUTE get_forum_and_thread_by_slug($1)", threadSlug).Scan(&forumSlug, &forumId, &threadId)
+	}
 	if err != nil {
 		return nil, err
 	}
