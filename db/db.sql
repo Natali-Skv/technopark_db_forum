@@ -25,7 +25,7 @@ ALTER SYSTEM SET
 CREATE UNLOGGED TABLE users
 (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    name text NOT NULL,
+    name text,
     nick citext COLLATE "C"  UNIQUE NOT NULL,
     email citext  UNIQUE NOT NULL,
     about text 
@@ -35,7 +35,7 @@ CREATE UNLOGGED TABLE forums
 (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     slug citext UNIQUE NOT NULL,
-    title text NOT NULL,
+    title text,
     -- author_id BIGINT REFERENCES users NOT NULL,
     author_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
     threads integer DEFAULT 0,
@@ -46,14 +46,14 @@ CREATE UNLOGGED TABLE threads
 (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     slug citext UNIQUE,
-    title text NOT NULL,
+    title text,
     -- author_id BIGINT REFERENCES users NOT NULL,
     author_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
     forum_id BIGINT REFERENCES forums NOT NULL,
     forum_slug citext REFERENCES forums(slug) NOT NULL,
-    message text NOT NULL,
+    message text,
     votes integer DEFAULT 0,
-    created timestamp with time zone DEFAULT now() NOT NULL
+    created timestamp with time zone DEFAULT now()
 );
 
 CREATE UNLOGGED TABLE posts
@@ -63,12 +63,12 @@ CREATE UNLOGGED TABLE posts
     author_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
 	parent_id BIGINT REFERENCES posts,
     description text,
-    message text NOT NULL,
+    message text,
 	is_edited boolean DEFAULT false,
     forum_slug citext REFERENCES forums(slug) NOT NULL,
     forum_id BIGINT REFERENCES forums NOT NULL,
     thread_id integer REFERENCES threads NOT NULL,
-    created timestamp with time zone DEFAULT now() NOT NULL,
+    created timestamp with time zone DEFAULT now(),
     path BIGINT[] default array []::INTEGER[]
 );
 
@@ -162,7 +162,7 @@ BEGIN
         RETURN NULL;
     END IF;
     UPDATE forums SET posts = posts + 1 WHERE id = NEW.forum_id;
-    IF (NEW.parent_id IS NOT NULL) AND (NEW.parent_id != 0) THEN 
+    IF NEW.parent_id != 0 THEN 
         SELECT thread_id=NEW.thread_id INTO correct_parent FROM posts WHERE id = NEW.parent_id;
         IF NOT FOUND OR NOT correct_parent  THEN
             RAISE EXCEPTION USING ERRCODE = 'AAAA0';
@@ -325,13 +325,13 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 
 
 
-CREATE INDEX IF NOT EXISTS user_nick_idx ON users (nick);
-CREATE INDEX IF NOT EXISTS user_email_idx ON users (email);
+CREATE INDEX IF NOT EXISTS user_nick_idx ON users USING hash (nick);
+CREATE INDEX IF NOT EXISTS user_email_idx ON users USING hash (email);
 
-CREATE INDEX IF NOT EXISTS forum_slug_idx ON forums (slug);
+CREATE INDEX IF NOT EXISTS forum_slug_idx ON forums USING hash(slug);
 
-CREATE INDEX IF NOT EXISTS thread_slug_idx ON threads (slug); 
-CREATE INDEX IF NOT EXISTS thread_forum_slug_idx ON threads (forum_slug); 
+CREATE INDEX IF NOT EXISTS thread_slug_idx ON threads USING hash(slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_slug_idx ON threads USING hash(forum_slug); 
 CREATE INDEX IF NOT EXISTS thread_forum_created_idx ON threads (forum_slug, created);
 
 CREATE INDEX IF NOT EXISTS post_thread_idx ON posts (thread_id);

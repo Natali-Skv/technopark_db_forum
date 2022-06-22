@@ -1,8 +1,6 @@
 package userRepo
 
 import (
-	"fmt"
-
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
 	"github.com/jackc/pgx"
 )
@@ -23,7 +21,6 @@ func (r *Repo) Status() (*models.Status, error) {
 	err := r.Conn.QueryRow("EXECUTE status").Scan(&status.Forums, &status.Posts, &status.Threads)
 	err = r.Conn.QueryRow("EXECUTE status_users").Scan(&status.Users)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, err
 	}
 	return status, nil

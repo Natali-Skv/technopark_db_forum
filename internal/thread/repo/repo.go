@@ -2,7 +2,6 @@ package repo
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
@@ -77,7 +76,6 @@ func (r *Repo) Vote(vote *models.Vote) (*models.Thread, error) {
 		err = r.Conn.QueryRow("EXECUTE vote_thread_by_slug($1,$2,$3,$4)", vote.Nick, vote.ThreadSlug, vote.Voice, vote.Voice).Scan(&vote.ThreadId)
 	}
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, err
 	}
 	var slug sql.NullString
