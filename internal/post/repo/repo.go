@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	goErrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
@@ -56,20 +57,21 @@ func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]m
 	if len(posts) == 0 {
 		return []models.Post{}, nil
 	}
-	query := `INSERT into posts(author_nick, parent_id, message, forum_slug, forum_id, thread_id) VALUES `
+	query := strings.Builder{}
+	query.WriteString("INSERT into posts(author_nick, parent_id, message, forum_slug, forum_id, thread_id) VALUES ")
 	fieldCount := 6
 	args := make([]interface{}, 0, len(posts)*fieldCount)
 	i := 0
 	var post models.Post
 	for i, post = range posts[:len(posts)-1] {
-		query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
+		fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
 		args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
 		i += 1
 	}
 	post = posts[len(posts)-1]
-	query += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
+	fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
 	args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
-	postRows, err := r.Conn.Query(query, args...)
+	postRows, err := r.Conn.Query(query.String(), args...)
 	defer postRows.Close()
 	if err != nil {
 		return nil, goErrors.New(errors.INTERNAL_SERVER_ERROR)
