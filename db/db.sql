@@ -305,22 +305,22 @@ CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 -- create index if not exists forum_users_idx on forum_users (forum_id, user_id);
 --------------
 
--- CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick); -- common, with hash faster than with default b-tree
--- CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email); -- GetUsersByEmailOrNickname
+CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick);
+CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email);
 
--- CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug); -- common, with hash faster than with default b-tree
+CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug);
 
--- CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); -- GetForumThreadBySlug
--- CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); -- common
--- CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created); -- GetForumThreads
+CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); 
+CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created);
 
--- CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path); -- GetPostsFlat (first column), GetPostsTree, GetPostsParentTree
--- CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path); -- GetPostsParentTree, crucial
+CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path);
+CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path);
 
--- CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id); -- GetForumUsers
+CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id);
 
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id); -- VoteExists
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (nickname, thread, voice); -- UpdateVote
+-- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id);
+-- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (user_nick, thread_id, vote); 
 
 
 vacuum analyze;

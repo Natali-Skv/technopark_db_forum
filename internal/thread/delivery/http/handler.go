@@ -99,7 +99,7 @@ func (h *Handler) Vote(ctx echo.Context) error {
 	thread, err := h.Repo.Vote(vote)
 	if err != nil {
 		if pgerr, converted := err.(pgx.PgError); converted {
-			if pgerr.Code == "23502" {
+			if pgerr.Code == "23502" || pgerr.Code == "23503" {
 				return echo.NewHTTPError(http.StatusNotFound, errors.NO_THREAD+vote.ThreadSlug+strconv.Itoa(int(vote.ThreadId)))
 			}
 			if pgerr.Code == "AAAA1" {
