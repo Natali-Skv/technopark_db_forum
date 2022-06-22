@@ -17,6 +17,10 @@ CREATE UNLOGGED TABLE users
     about text 
 );
 
+CREATE  INDEX idx_users_id ON users(id);
+CREATE UNIQUE INDEX idx_users_nick ON users(nick);
+CLUSTER users USING idx_users_nick;
+
 CREATE UNLOGGED TABLE forums
 (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -27,6 +31,11 @@ CREATE UNLOGGED TABLE forums
     threads integer DEFAULT 0,
     posts integer DEFAULT 0
 );
+
+CREATE UNIQUE INDEX idx_forums_id ON forums(id);
+CREATE UNIQUE INDEX idx_forums_slug_id ON forums(slug, id);
+CREATE UNIQUE INDEX idx_forums_id_slug ON forums(id, slug);
+CLUSTER forums USING idx_forums_id;
 
 CREATE UNLOGGED TABLE threads 
 (
@@ -41,6 +50,13 @@ CREATE UNLOGGED TABLE threads
     votes integer DEFAULT 0,
     created timestamp with time zone DEFAULT now() NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_thread_id ON threads(slug);
+CREATE INDEX idx_threads_created ON threads(created);
+CREATE INDEX idx_threads_slug_id ON threads(slug, id);
+CREATE INDEX idx_threads_id_slug ON threads(id, slug);
+CREATE INDEX idx_threads_forum_created ON threads(forum_id, created);
+CLUSTER threads USING idx_threads_forum_created;
 
 CREATE UNLOGGED TABLE posts
 (
@@ -58,6 +74,14 @@ CREATE UNLOGGED TABLE posts
     path BIGINT[] default array []::INTEGER[]
 );
 
+CREATE INDEX idx_post_threadID_created_id ON posts(thread_id, created, id);
+CREATE INDEX idx_post_threadID_path ON posts(thread_id, path);
+CREATE INDEX idx_posts_threadID_root_path ON posts (thread_id, (path[1]), path);
+CREATE INDEX idx_post_threadID_id_parentNull_id ON posts(thread_id, id) WHERE parent_id IS NULL;
+CREATE INDEX idx_posts_id ON posts (id);
+CREATE INDEX idx_posts_id_full ON posts (id, parent_id, thread_id , message, is_edited, created, forum_slug, author_nick) ;
+CREATE INDEX idx_post_threadID_ID_parentID ON posts(thread_id, id, parent_id);
+
 CREATE UNLOGGED TABLE votes 
 (
     -- author_id BIGINT REFERENCES users NOT NULL,
@@ -66,6 +90,8 @@ CREATE UNLOGGED TABLE votes
     vote integer NOT NULL,
     UNIQUE (user_nick, thread_id)
 );
+ALTER TABLE ONLY votes ADD CONSTRAINT votes_user_thread_unique UNIQUE (user_nick, thread_id);
+CLUSTER votes USING votes_user_thread_unique;CLUSTER votes USING votes_user_thread_unique;
 
 CREATE UNLOGGED TABLE forum_users 
 (
@@ -75,6 +101,11 @@ CREATE UNLOGGED TABLE forum_users
     forum_id BIGINT REFERENCES forums NOT NULL,
     UNIQUE (user_id, forum_id)
 );
+
+CREATE UNIQUE INDEX idx_forum_users_slug ON forum_users(forum_id, user_id );
+CLUSTER forum_users USING idx_forum_users_slug;
+
+
 ---------------------------FUNCTIONS----------------------------
 CREATE OR REPLACE FUNCTION get_author_nick() RETURNS TRIGGER AS
 $$
@@ -210,7 +241,7 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 -- CREATE INDEX post_thread_index ON posts (thread_id); -- -
 -- CREATE INDEX post_thread_id_index ON posts (thread_id, id); -- +
 
-CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
+-- CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 
 -- CREATE INDEX users_nickname_lower_index ON users (lower(users.nick));
 -- CREATE INDEX users_nickname_index ON users ((users.nick));
@@ -291,22 +322,22 @@ CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
 -- create index if not exists forum_users_idx on forum_users (forum_id, user_id);
 --------------
 
-CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick); -- common, with hash faster than with default b-tree
-CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email); -- GetUsersByEmailOrNickname
+-- CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick); -- common, with hash faster than with default b-tree
+-- CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email); -- GetUsersByEmailOrNickname
 
-CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug); -- common, with hash faster than with default b-tree
+-- CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug); -- common, with hash faster than with default b-tree
 
-CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); -- GetForumThreadBySlug
-CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); -- common
-CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created); -- GetForumThreads
+-- CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); -- GetForumThreadBySlug
+-- CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); -- common
+-- CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created); -- GetForumThreads
 
-CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path); -- GetPostsFlat (first column), GetPostsTree, GetPostsParentTree
-CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path); -- GetPostsParentTree, crucial
+-- CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path); -- GetPostsFlat (first column), GetPostsTree, GetPostsParentTree
+-- CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path); -- GetPostsParentTree, crucial
 
-CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id); -- GetForumUsers
+-- CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id); -- GetForumUsers
 
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id); -- VoteExists
--- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (nickname, thread, voice); -- UpdateVote
+-- -- CREATE UNIQUE INDEX IF NOT EXISTS votes_less ON votes (user_nick, thread_id); -- VoteExists
+-- -- CREATE UNIQUE INDEX IF NOT EXISTS votes_more ON votes (nickname, thread, voice); -- UpdateVote
 
 
 vacuum analyze;
