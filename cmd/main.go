@@ -45,7 +45,6 @@ func main() {
 	e := echo.New()
 	pprof.Register(e)
 	e.Use(middleware.Recover())
-	// e.Use(middleware.Logger())
 	userRepo := userRepository.NewRepo(connPool)
 	userHandler := userHandler.NewHandler(userRepo)
 	forumRepo := forumRepository.NewRepo(connPool)

@@ -216,9 +216,6 @@ func (r *Repo) GetPostByIdRelated(id int, related []string) (*models.Post, *mode
 	parentId := sql.NullInt64{}
 
 	scanArgs := []interface{}{&post.Id, &parentId, &post.AuthorNick, &post.ForumSlug, &post.ThreadId, &post.Message, &created, &post.IsEdited}
-	//  если размер 3 -- все ясно
-	// _ _ _
-	// сделать мапу
 
 	relatedMap := map[string]bool{}
 

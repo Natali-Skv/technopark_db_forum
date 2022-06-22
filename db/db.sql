@@ -105,7 +105,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_user_nick() RETURNS TRIGGER AS
 $$
 BEGIN
-    RAISE NOTICE 'get_user_nick %', NEW;
     SELECT nick INTO NEW.user_nick FROM users WHERE nick=NEW.user_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
@@ -117,7 +116,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION insert_vote_to_thread() RETURNS TRIGGER AS
 $$
 BEGIN
-    RAISE NOTICE 'insert_vote_to_thread %', NEW;
     UPDATE threads SET votes = votes + NEW.vote WHERE id = NEW.thread_id;
     RETURN NEW;
 END
@@ -126,7 +124,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_vote_to_thread() RETURNS TRIGGER AS
 $$
 BEGIN
-    RAISE NOTICE 'update_vote_to_thread %', NEW;
     UPDATE threads SET votes = votes - OLD.vote + NEW.vote WHERE id = NEW.thread_id;
     RETURN NEW;
 END

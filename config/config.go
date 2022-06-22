@@ -8,14 +8,6 @@ type DbConfigStruct struct {
 	MaxConnections int
 }
 
-// var DbConfig = DbConfigStruct{
-// 	User:           "forum_user",
-// 	Password:       "password",
-// 	DBName:         "forum",
-// 	Port:           "5432",
-// 	MaxConnections: 1000,
-// }
-
 var DbConfig = DbConfigStruct{
 	User:           "docker",
 	Password:       "docker",
