@@ -111,21 +111,8 @@ func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]m
 		r.Conn.Exec("CLUSTER posts USING post_thread_idx")
 		r.Conn.Exec("SELECT pg_prewarm('forums')")
 		r.Conn.Exec("SELECT pg_prewarm('users')")
-		r.Conn.Exec("SELECT pg_prewarm('threads')")
 		r.Conn.Exec("VACUUM ANALYZE")
 	}
-	// if posts[len(posts)-1].Id == postsCount {
-	// 	fmt.Println(posts[len(posts)-1].Id)
-	// 	fmt.Println(r.Conn.Exec("CLUSTER users USING user_nick_idx"))
-	// 	fmt.Println(r.Conn.Exec("CLUSTER forums USING forum_slug_idx;"))
-	// 	fmt.Println(r.Conn.Exec("CLUSTER threads USING thread_forum_created_idx"))
-	// 	fmt.Println(r.Conn.Exec("CLUSTER votes USING vote_full"))
-	// 	fmt.Println(r.Conn.Exec("CLUSTER posts USING post_thread_idx"))
-	// 	fmt.Println(r.Conn.Exec("SELECT pg_prewarm('forums.forum_slug_idx')"))
-	// 	fmt.Println(r.Conn.Exec("SELECT pg_prewarm('threads.thread_forum_created_idx')"))
-	// 	fmt.Println(r.Conn.Exec("SELECT pg_prewarm('users.user_nick_idx')"))
-	// 	fmt.Println(r.Conn.Exec("VACUUM ANALYZE"))
-	// }
 	return posts, nil
 }
 

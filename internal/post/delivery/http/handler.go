@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
 	postRepo "github.com/Natali-Skv/technopark_db_forum/internal/post"
@@ -27,22 +26,10 @@ type Handler struct {
 	Repo postRepo.Repo
 }
 
-var Statistic = map[string]uint64{
-	"create post":      0,
-	"update post":      0,
-	"get post":         0,
-	"get thread posts": 0,
-}
-var StatisticMutex = sync.RWMutex{}
-
 func NewHandler(repo postRepo.Repo) *Handler {
 	return &Handler{Repo: repo}
 }
 func (h *Handler) CreatePost(ctx echo.Context) error {
-	StatisticMutex.Lock()
-	Statistic["create post"]++
-	StatisticMutex.Unlock()
-
 	posts := []models.Post{}
 	if err := ctx.Bind(&posts); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)
@@ -70,10 +57,6 @@ func (h *Handler) CreatePost(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, newPost)
 }
 func (h *Handler) GetThreadPosts(ctx echo.Context) error {
-	StatisticMutex.Lock()
-	Statistic["get thread posts"]++
-	StatisticMutex.Unlock()
-
 	threadSlugOrId := ctx.Param(SlugOrIdCtxKey)
 	threadId, _ := strconv.Atoi(threadSlugOrId)
 	since, _ := strconv.Atoi(ctx.QueryParam(SinceQueryParam))
@@ -97,10 +80,6 @@ func (h *Handler) GetThreadPosts(ctx echo.Context) error {
 }
 
 func (h *Handler) GetPost(ctx echo.Context) error {
-	StatisticMutex.Lock()
-	Statistic["get post"]++
-	StatisticMutex.Unlock()
-
 	id, _ := strconv.Atoi(ctx.Param(IdCtxKey))
 	related := ctx.QueryParam(RelatedQueryParam)
 	relatedArray := strings.Split(related, ",")
@@ -124,10 +103,6 @@ func (h *Handler) GetPost(ctx echo.Context) error {
 }
 
 func (h *Handler) UpdatePost(ctx echo.Context) error {
-	StatisticMutex.Lock()
-	Statistic["update post"]++
-	StatisticMutex.Unlock()
-
 	post := &models.Post{}
 	post.Id, _ = strconv.Atoi(ctx.Param(IdCtxKey))
 	if err := ctx.Bind(post); err != nil {

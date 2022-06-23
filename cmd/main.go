@@ -45,7 +45,7 @@ func main() {
 	e := echo.New()
 	pprof.Register(e)
 	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
+	// e.Use(middleware.Logger())
 	userRepo := userRepository.NewRepo(connPool)
 	userHandler := userDelivery.NewHandler(userRepo)
 	forumRepo := forumRepository.NewRepo(connPool)
@@ -65,22 +65,6 @@ func main() {
 		ServiceHandler: servHandler,
 	}
 	handlers.ConfigureRouting(e)
-
-	e.GET("/api/"+"stat", func(ctx echo.Context) error {
-		fmt.Println()
-		fmt.Println("====================")
-		fmt.Println(userDelivery.Statistic)
-		fmt.Println()
-		fmt.Println(forumDelivery.Statistic)
-		fmt.Println()
-		fmt.Println(threadDelivery.Statistic)
-		fmt.Println()
-		fmt.Println(postDelivery.Statistic)
-		fmt.Println()
-		fmt.Println(serviceDelivery.Statistic)
-		fmt.Println("====================")
-		return nil
-	})
 
 	e.Logger.Fatal(e.Start(":5000"))
 }

@@ -15,7 +15,6 @@ func NewRepo(conn *pgx.ConnPool) *Repo {
 	return &Repo{Conn: conn}
 }
 
-// просуммировать одновременно posts + threads
 func (r *Repo) Status() (*models.Status, error) {
 	status := &models.Status{}
 	err := r.Conn.QueryRow("EXECUTE status").Scan(&status.Forums, &status.Posts, &status.Threads)

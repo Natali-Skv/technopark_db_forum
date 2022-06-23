@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"sync"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
 	threadRepo "github.com/Natali-Skv/technopark_db_forum/internal/thread"
@@ -21,24 +20,11 @@ type Handler struct {
 	Repo threadRepo.Repo
 }
 
-var Statistic = map[string]uint64{
-	"create thread": 0,
-	"update thread": 0,
-	"get thread":    0,
-	"vote thread":   0,
-}
-var StatisticMutex = sync.RWMutex{}
-
 func NewHandler(repo threadRepo.Repo) *Handler {
 	return &Handler{Repo: repo}
 }
 
 func (h *Handler) CreateThread(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["create thread"]++
-		StatisticMutex.Unlock()
-	}()
 	thread := &models.Thread{}
 	if err := ctx.Bind(thread); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)
@@ -65,11 +51,6 @@ func (h *Handler) CreateThread(ctx echo.Context) error {
 }
 
 func (h *Handler) UpdateThread(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["update thread"]++
-		StatisticMutex.Unlock()
-	}()
 	threadSlugOrId := ctx.Param(SlugOrIdCtxKey)
 	threadId, err := strconv.Atoi(threadSlugOrId)
 	thread := &models.Thread{}
@@ -91,11 +72,6 @@ func (h *Handler) UpdateThread(ctx echo.Context) error {
 }
 
 func (h *Handler) GetThread(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["get thread"]++
-		StatisticMutex.Unlock()
-	}()
 	threadSlugOrId := ctx.Param(SlugOrIdCtxKey)
 	threadId, err := strconv.Atoi(threadSlugOrId)
 	threadResp, err := h.Repo.GetBySlugOrId(threadSlugOrId, int(threadId))
@@ -109,11 +85,6 @@ func (h *Handler) GetThread(ctx echo.Context) error {
 }
 
 func (h *Handler) Vote(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["vote thread"]++
-		StatisticMutex.Unlock()
-	}()
 	vote := &models.Vote{}
 	if err := ctx.Bind(&vote); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)

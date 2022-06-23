@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"sync"
 
 	forumRepo "github.com/Natali-Skv/technopark_db_forum/internal/forum"
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
@@ -19,14 +18,6 @@ const (
 	LimitQueryParam    = "limit"
 )
 
-var Statistic = map[string]uint64{
-	"create forum":      0,
-	"get forum":         0,
-	"get forum users":   0,
-	"get forum threads": 0,
-}
-var StatisticMutex = sync.RWMutex{}
-
 type Handler struct {
 	Repo forumRepo.Repo
 }
@@ -35,11 +26,6 @@ func NewHandler(repo forumRepo.Repo) *Handler {
 	return &Handler{Repo: repo}
 }
 func (h *Handler) CreateForum(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["create forum"]++
-		StatisticMutex.Unlock()
-	}()
 	forum := &models.Forum{}
 	if err := ctx.Bind(forum); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)
@@ -62,11 +48,6 @@ func (h *Handler) CreateForum(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, newForum)
 }
 func (h *Handler) GetForum(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["get forum"]++
-		StatisticMutex.Unlock()
-	}()
 	slug := ctx.Param(SlugCtxKey)
 	userResp, err := h.Repo.GetBySlug(slug)
 	if err != nil {
@@ -79,11 +60,6 @@ func (h *Handler) GetForum(ctx echo.Context) error {
 }
 
 func (h *Handler) GetForumThreads(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["get forum threads"]++
-		StatisticMutex.Unlock()
-	}()
 	since := ctx.QueryParam(SinceQueryParam)
 	descStr := ctx.QueryParam(DescSortQueryParam)
 	desc := false
@@ -105,11 +81,6 @@ func (h *Handler) GetForumThreads(ctx echo.Context) error {
 }
 
 func (h *Handler) GetForumUsers(ctx echo.Context) error {
-	defer func() {
-		StatisticMutex.Lock()
-		Statistic["get forum users"]++
-		StatisticMutex.Unlock()
-	}()
 	slug := ctx.Param(SlugCtxKey)
 
 	limit, _ := strconv.Atoi(ctx.QueryParam(LimitQueryParam))
