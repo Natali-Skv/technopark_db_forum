@@ -69,7 +69,6 @@ CREATE UNLOGGED TABLE posts
     forum_slug citext REFERENCES forums(slug) NOT NULL,
     forum_id BIGINT REFERENCES forums NOT NULL,
     thread_id integer REFERENCES threads NOT NULL,
-    -- thread_slug citext REFERENCES threads(slug),
     created timestamp with time zone DEFAULT now(),
     path BIGINT[] default array []::INTEGER[]
 );
@@ -85,17 +84,22 @@ CREATE UNLOGGED TABLE votes
 
 CREATE UNLOGGED TABLE forum_users 
 (
-    -- user_id BIGINT REFERENCES users NOT NULL,
-    nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
-    email citext NOT NULL,
     name text,
-    about text,
-	-- forum_slug citext REFERENCES forums NOT NULL,
-    -- forum_id BIGINT REFERENCES forums NOT NULL,
+    nick citext COLLATE "C"  UNIQUE NOT NULL,
+    email citext  UNIQUE NOT NULL,
+    about text, 
     forum_slug citext REFERENCES forums(slug) NOT NULL,
     UNIQUE (nick, forum_slug)
 );
 ---------------------------FUNCTIONS----------------------------
+CREATE OR REPLACE FUNCTION update_forum_user() RETURNS TRIGGER AS
+$$
+BEGIN
+   UPDATE forum_users SET name=NEW.name,email=NEW.email,about=NEW.about WHERE nick = NEW.nick;
+   RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION get_author_nick() RETURNS TRIGGER AS
 $$
 BEGIN
@@ -140,12 +144,11 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION insert_threads_tg() RETURNS TRIGGER AS
 $$
 DECLARE
-author_email text;
-author_name text;
-author_about text;
+    author_name text;
+    author_email text;
+    author_about text;
 BEGIN
-    -- SELECT nick INTO NEW.author_nick FROM users WHERE nick=NEW.author_nick;
-    SELECT nick,email,name,about INTO NEW.author_nick,author_email,author_name,author_about FROM users WHERE nick=NEW.author_nick;
+    SELECT nick,name,email,about INTO NEW.author_nick,author_name,author_email,author_about FROM users WHERE nick=NEW.author_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
     END IF;
@@ -153,8 +156,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA3';
     END IF;
-    -- INSERT INTO forum_users(nick,forum_slug) VALUES(NEW.author_nick,NEW.forum_slug) ON CONFLICT DO NOTHING;
-    INSERT INTO forum_users(nick,email,name,about,forum_slug) VALUES(NEW.author_nick,author_email,author_name,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
+    INSERT INTO forum_users(nick,name,email,about,forum_slug) VALUES(NEW.author_nick,author_name,author_email,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
    RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
@@ -165,12 +167,11 @@ $$
 DECLARE
 parent_path bigint[];
 correct_parent boolean;
-author_email text;
 author_name text;
+author_email text;
 author_about text;
 BEGIN
-    -- SELECT nick,id INTO NEW.author_nick,NEW.author_id FROM users WHERE nick=NEW.author_nick;
-    SELECT nick,email,name,about,id INTO NEW.author_nick,author_email,author_name,author_about,NEW.author_id FROM users WHERE nick=NEW.author_nick;
+    SELECT nick,name,email,about,id INTO NEW.author_nick,author_name,author_email,author_about,NEW.author_id FROM users WHERE nick=NEW.author_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
         RETURN NULL;
@@ -188,8 +189,7 @@ BEGIN
         NEW.parent_id=NULL;
         NEW.path = ARRAY[NEW.id];
     END IF;
-    -- INSERT INTO forum_users(nick,forum_slug) VALUES(NEW.author_nick,NEW.forum_slug) ON CONFLICT DO NOTHING;
-    INSERT INTO forum_users(nick,email,name,about,forum_slug) VALUES(NEW.author_nick,author_email,author_name,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
+    INSERT INTO forum_users(nick,name,email,about,forum_slug) VALUES(NEW.author_nick,author_name,author_email,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -206,6 +206,9 @@ END
 $$ LANGUAGE plpgsql;
 
 ---------------------------TRIGGERS-----------------------------
+CREATE TRIGGER update_forum_user_tg AFTER UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION update_forum_user();
+
 CREATE TRIGGER insert_vote_to_thread_tg AFTER INSERT ON votes
 FOR EACH ROW EXECUTE FUNCTION insert_vote_to_thread();
 

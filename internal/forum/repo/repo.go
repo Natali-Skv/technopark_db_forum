@@ -17,8 +17,16 @@ func NewRepo(conn *pgx.ConnPool) *Repo {
 	conn.Prepare("create_forum", "INSERT into forums(title, slug, author_nick) VALUES ($1,$2,$3) RETURNING author_nick")
 	conn.Prepare("get_by_slug_forum", "SELECT slug, title, posts, threads, author_nick FROM forums WHERE slug =$1")
 	conn.Prepare("check_by_slug", "SELECT exists(SELECT 1 FROM forums WHERE slug =$1)")
-	conn.Prepare("get_forum_users_desc", "SELECT name,nick,email,about FROM forum_users fu JOIN users u ON fu.user_id=u.id WHERE fu.forum_id=(SELECT id FROM forums WHERE slug=$1) AND ($2='' OR u.nick<$3) ORDER BY u.nick DESC LIMIT NULLIF($4,0)")
-	conn.Prepare("get_forum_users", "SELECT name,nick,email,about FROM forum_users fu JOIN users u ON fu.user_id=u.id WHERE fu.forum_id=(SELECT id FROM forums WHERE slug=$1) AND ($2='' OR u.nick>$3) ORDER BY u.nick LIMIT NULLIF($4,0)")
+
+	// conn.Prepare("get_forum_users_desc", "SELECT u.name,u.nick,u.email,u.about FROM forum_users fu JOIN users u ON fu.nick=u.nick WHERE fu.forum_slug=$1 AND ($2='' OR u.nick<$3) ORDER BY u.nick DESC LIMIT NULLIF($4,0)")
+	// conn.Prepare("get_forum_users", "SELECT u.name,u.nick,u.email,u.about FROM forum_users fu JOIN users u ON fu.nick=u.nick WHERE fu.forum_slug=$1 AND ($2='' OR u.nick>$3) ORDER BY u.nick LIMIT NULLIF($4,0)")
+
+	// conn.Prepare("get_forum_users_desc", "SELECT u.name,u.nick,fu.email,u.about FROM forum_users fu JOIN users u ON fu.nick=u.nick WHERE fu.forum_slug=$1 AND ($2='' OR u.nick<$3) ORDER BY u.nick DESC LIMIT NULLIF($4,0)")
+	// conn.Prepare("get_forum_users", "SELECT u.name,u.nick,fu.email,u.about FROM forum_users fu JOIN users u ON fu.nick=u.nick WHERE fu.forum_slug=$1 AND ($2='' OR u.nick>$3) ORDER BY u.nick LIMIT NULLIF($4,0)")
+
+	conn.Prepare("get_forum_users_desc", "SELECT name,nick,email,about FROM forum_users WHERE forum_slug=$1 AND ($2='' OR nick<$3) ORDER BY nick DESC LIMIT NULLIF($4,0)")
+	conn.Prepare("get_forum_users", "SELECT name,nick,email,about FROM forum_users WHERE forum_slug=$1 AND ($2='' OR nick>$3) ORDER BY nick LIMIT NULLIF($4,0)")
+
 	conn.Prepare("get_threads", "SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE forum_slug =$1 AND ($2::text IS NULL OR created>=$3) ORDER BY created LIMIT NULLIF($4,0)")
 	conn.Prepare("get_threads_desc", "SELECT id, slug, title, author_nick, forum_slug, message, votes, created FROM threads WHERE forum_slug =$1 AND ($2::text IS NULL OR created<=$3) ORDER BY created DESC LIMIT NULLIF($4,0)")
 

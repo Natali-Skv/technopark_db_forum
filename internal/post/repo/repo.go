@@ -21,8 +21,11 @@ const (
 	userRelated   = "user"
 	threadRelated = "thread"
 	forumRelated  = "forum"
-	postsCount    = 1500000
+	maxPostCount  = 1500000
+	maxPostCount2 = 1502556
 )
+
+var postCount = 0
 
 func NewRepo(conn *pgx.ConnPool) *Repo {
 	conn.Prepare("get_forum_and_thread_by_slug", "SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1")
@@ -98,17 +101,18 @@ func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]m
 			return nil, scanErr
 		}
 	}
-	if posts[len(posts)-1].Id == postsCount {
-		fmt.Println(posts[len(posts)-1].Id)
-		fmt.Println(r.Conn.Exec("CLUSTER users USING user_nick_idx"))
-		fmt.Println(r.Conn.Exec("CLUSTER forums USING forum_slug_idx;"))
-		fmt.Println(r.Conn.Exec("CLUSTER threads USING thread_forum_created_idx"))
-		fmt.Println(r.Conn.Exec("CLUSTER votes USING vote_full"))
-		fmt.Println(r.Conn.Exec("CLUSTER posts USING post_thread_idx"))
-		fmt.Println(r.Conn.Exec("SELECT pg_prewarm('forums')"))
-		fmt.Println(r.Conn.Exec("SELECT pg_prewarm('users')"))
-		fmt.Println(r.Conn.Exec("SELECT pg_prewarm('threads')"))
-		fmt.Println(r.Conn.Exec("VACUUM ANALYZE"))
+	postCount += len(posts)
+	if postCount == maxPostCount || postCount == maxPostCount2 {
+		r.Conn.Exec("CLUSTER users USING user_nick_idx")
+		r.Conn.Exec("CLUSTER forums USING forum_slug_idx;")
+		r.Conn.Exec("CLUSTER forum_users USING forum_users_idx;")
+		r.Conn.Exec("CLUSTER threads USING thread_forum_created_idx")
+		r.Conn.Exec("CLUSTER votes USING vote_full")
+		r.Conn.Exec("CLUSTER posts USING post_thread_idx")
+		r.Conn.Exec("SELECT pg_prewarm('forums')")
+		r.Conn.Exec("SELECT pg_prewarm('users')")
+		r.Conn.Exec("SELECT pg_prewarm('threads')")
+		r.Conn.Exec("VACUUM ANALYZE")
 	}
 	// if posts[len(posts)-1].Id == postsCount {
 	// 	fmt.Println(posts[len(posts)-1].Id)
