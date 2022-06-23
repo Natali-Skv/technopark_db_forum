@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/Natali-Skv/technopark_db_forum/internal/models"
 	"github.com/Natali-Skv/technopark_db_forum/internal/tools/errors"
@@ -18,10 +19,22 @@ const (
 	NickCtxKey = "username"
 )
 
+var Statistic = map[string]uint64{
+	"create user": 0,
+	"update user": 0,
+	"get user":    0,
+}
+var StatisticMutex = sync.RWMutex{}
+
 func NewHandler(repo user.Repo) *Handler {
 	return &Handler{Repo: repo}
 }
 func (h *Handler) CreateUser(ctx echo.Context) error {
+	defer func() {
+		StatisticMutex.Lock()
+		Statistic["create user"]++
+		StatisticMutex.Unlock()
+	}()
 	var newUserReq models.User
 	if err := ctx.Bind(&newUserReq); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)
@@ -39,6 +52,11 @@ func (h *Handler) CreateUser(ctx echo.Context) error {
 }
 
 func (h *Handler) GetUser(ctx echo.Context) error {
+	defer func() {
+		StatisticMutex.Lock()
+		Statistic["get user"]++
+		StatisticMutex.Unlock()
+	}()
 	nick := ctx.Param(NickCtxKey)
 	userResp, err := h.Repo.GetByNick(nick)
 	if err != nil {
@@ -51,6 +69,11 @@ func (h *Handler) GetUser(ctx echo.Context) error {
 }
 
 func (h *Handler) UpdateUser(ctx echo.Context) error {
+	defer func() {
+		StatisticMutex.Lock()
+		Statistic["update user"]++
+		StatisticMutex.Unlock()
+	}()
 	var updateUserReq models.User
 	if err := ctx.Bind(&updateUserReq); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errors.BAD_BODY)

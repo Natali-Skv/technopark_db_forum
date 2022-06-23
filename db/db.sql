@@ -1,6 +1,7 @@
 
-CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION pg_prewarm;
+CREATE EXTENSION IF NOT EXISTS citext;
+
 DROP TABLE IF EXISTS forum_users CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS forums CASCADE;
@@ -8,20 +9,6 @@ DROP TABLE IF EXISTS threads CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
 DEALLOCATE ALL;
-
-CREATE EXTENSION IF NOT EXISTS citext;
-
-ALTER SYSTEM SET
-    checkpoint_completion_target = '0.9';
-ALTER SYSTEM SET
-    wal_buffers = '6912kB';
-ALTER SYSTEM SET
-    default_statistics_target = '100';
-ALTER SYSTEM SET
-    random_page_cost = '1.1';
-ALTER SYSTEM SET
-    effective_io_concurrency = '200';
-
 
 CREATE UNLOGGED TABLE users
 (
@@ -37,7 +24,6 @@ CREATE UNLOGGED TABLE forums
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     slug citext UNIQUE NOT NULL,
     title text,
-    -- author_id BIGINT REFERENCES users NOT NULL,
     author_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
     threads integer DEFAULT 0,
     posts integer DEFAULT 0
@@ -48,7 +34,6 @@ CREATE UNLOGGED TABLE threads
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     slug citext UNIQUE,
     title text,
-    -- author_id BIGINT REFERENCES users NOT NULL,
     author_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
     forum_id BIGINT REFERENCES forums NOT NULL,
     forum_slug citext REFERENCES forums(slug) NOT NULL,
@@ -69,14 +54,13 @@ CREATE UNLOGGED TABLE posts
     forum_slug citext REFERENCES forums(slug) NOT NULL,
     forum_id BIGINT REFERENCES forums NOT NULL,
     thread_id integer REFERENCES threads NOT NULL,
-    -- thread_slug citext REFERENCES threads(slug),
+    thread_slug citext,
     created timestamp with time zone DEFAULT now(),
     path BIGINT[] default array []::INTEGER[]
 );
 
 CREATE UNLOGGED TABLE votes 
 (
-    -- author_id BIGINT REFERENCES users NOT NULL,
     user_nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
 	thread_id BIGINT REFERENCES threads NOT NULL,
     vote integer NOT NULL,
@@ -85,13 +69,10 @@ CREATE UNLOGGED TABLE votes
 
 CREATE UNLOGGED TABLE forum_users 
 (
-    -- user_id BIGINT REFERENCES users NOT NULL,
     nick citext COLLATE "C" REFERENCES users(nick) NOT NULL,
     email citext NOT NULL,
     name text,
     about text,
-	-- forum_slug citext REFERENCES forums NOT NULL,
-    -- forum_id BIGINT REFERENCES forums NOT NULL,
     forum_slug citext REFERENCES forums(slug) NOT NULL,
     UNIQUE (nick, forum_slug)
 );
@@ -99,7 +80,6 @@ CREATE UNLOGGED TABLE forum_users
 CREATE OR REPLACE FUNCTION get_author_nick() RETURNS TRIGGER AS
 $$
 BEGIN
-    -- SELECT nick,id INTO NEW.author_nick, NEW.author_id FROM users WHERE nick=NEW.author_nick;
     SELECT nick INTO NEW.author_nick FROM users WHERE nick=NEW.author_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
@@ -136,7 +116,6 @@ END
 $$ LANGUAGE plpgsql;
 
 
-------главный триггер вставки треда
 CREATE OR REPLACE FUNCTION insert_threads_tg() RETURNS TRIGGER AS
 $$
 DECLARE
@@ -144,7 +123,6 @@ author_email text;
 author_name text;
 author_about text;
 BEGIN
-    -- SELECT nick INTO NEW.author_nick FROM users WHERE nick=NEW.author_nick;
     SELECT nick,email,name,about INTO NEW.author_nick,author_email,author_name,author_about FROM users WHERE nick=NEW.author_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
@@ -153,13 +131,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA3';
     END IF;
-    -- INSERT INTO forum_users(nick,forum_slug) VALUES(NEW.author_nick,NEW.forum_slug) ON CONFLICT DO NOTHING;
     INSERT INTO forum_users(nick,email,name,about,forum_slug) VALUES(NEW.author_nick,author_email,author_name,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
    RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
 
------- главный триггер обновления постов
 CREATE OR REPLACE FUNCTION insert_posts_tg() RETURNS TRIGGER AS
 $$
 DECLARE
@@ -169,7 +145,6 @@ author_email text;
 author_name text;
 author_about text;
 BEGIN
-    -- SELECT nick,id INTO NEW.author_nick,NEW.author_id FROM users WHERE nick=NEW.author_nick;
     SELECT nick,email,name,about,id INTO NEW.author_nick,author_email,author_name,author_about,NEW.author_id FROM users WHERE nick=NEW.author_nick;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'AAAA1';
@@ -188,7 +163,6 @@ BEGIN
         NEW.parent_id=NULL;
         NEW.path = ARRAY[NEW.id];
     END IF;
-    -- INSERT INTO forum_users(nick,forum_slug) VALUES(NEW.author_nick,NEW.forum_slug) ON CONFLICT DO NOTHING;
     INSERT INTO forum_users(nick,email,name,about,forum_slug) VALUES(NEW.author_nick,author_email,author_name,author_about,NEW.forum_slug) ON CONFLICT DO NOTHING;
     RETURN NEW;
 END;
@@ -229,95 +203,6 @@ FOR EACH ROW EXECUTE FUNCTION get_author_nick();
 
 ---------------------------INDEXES-----------------------------
 
--- CREATE INDEX post_first_path_thread_idx ON posts ((posts.path[1]), thread_id);
--- CREATE INDEX post_first_parent_id_index ON posts ((posts.path[1]), id);
--- CREATE INDEX post_first_parent_index ON posts ((posts.path[1]));
--- CREATE INDEX post_path_index ON posts ((posts.path));
--- CREATE INDEX post_thread_index ON posts (thread_id); -- -
--- CREATE INDEX post_thread_id_index ON posts (thread_id, id); -- +
-
--- CREATE INDEX forum_slug_lower_index ON forums (slug); -- +
-
--- CREATE INDEX users_nickname_lower_index ON users (lower(users.nick));
--- CREATE INDEX users_nickname_index ON users ((users.nick));
--- CREATE INDEX users_email_index ON users (lower(email));
-
--- CREATE INDEX users_forum_forum_user_index ON forum_users (lower(forum_slug), user_nick);
--- CREATE INDEX users_forum_user_index ON forum_users (user_nick);
-
--- CREATE INDEX thread_slug_lower_index ON threads (lower(slug));
--- CREATE INDEX thread_slug_index ON threads (slug);
--- CREATE INDEX thread_slug_id_index ON threads (lower(slug), id);
--- CREATE INDEX thread_forum_lower_index ON threads (lower(forum_slug)); -- +
--- CREATE INDEX thread_id_forum_index ON threads (id, forum_slug);
--- CREATE INDEX thread_created_index ON threads (created);
-
--- CREATE INDEX vote_nickname ON votes (lower(user_nick), thread_id, vote); -- +
-
--- -- NEW INDEXES
--- CREATE INDEX post_path_id_index ON posts (id, (posts.path));
--- CREATE INDEX post_thread_path_id_index ON posts (thread_id, (posts.parent_id), id);
-
--- CREATE INDEX users_forum_forum_index ON forum_users (forum_slug); -- +
-
--- -------
--- drop index if exists post_first_path_thread_idx;
--- drop index if exists post_first_parent_id_index;
--- drop index if exists post_first_parent_index;
--- drop index if exists post_path_index;
--- drop index if exists post_thread_index;
--- drop index if exists post_thread_id_index;
--- drop index if exists forum_slug_lower_index;
--- drop index if exists users_nickname_lower_index;
--- drop index if exists users_nickname_index;
--- drop index if exists users_email_index;
--- drop index if exists users_forum_forum_user_index;
--- drop index if exists users_forum_user_index;
--- drop index if exists thread_slug_lower_index;
--- drop index if exists thread_slug_index;
--- drop index if exists thread_slug_id_index;
--- drop index if exists thread_forum_lower_index;
--- drop index if exists thread_id_forum_index;
--- drop index if exists thread_created_index;
--- drop index if exists vote_nickname;
-
--- ------------------------------prepare-------------------------
--- PREPARE  update_post(text,bigint) AS
---     UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited;
--- -- EXECUTE update_post('message', 1);
-
-
--- UPDATE posts SET message=COALESCE(NULLIF($1, ''), message), is_edited=true WHERE id=$2 RETURNING id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited
-
--- drop index if exists index_post_by_thread_path;
--- create unique index if not exists index_post_by_thread_path on posts (thread_id, path);
-
--- drop index if exists index_post_by_thread;
--- create index if not exists index_post_by_thread on posts (thread_id);
-
-
--- drop index if exists index_thread_by_slug;
-
--- drop index if exists index_thread_by_forum;
--- create index if not exists index_thread_by_forum on threads (forum_slug);
-
--- drop index if exists index_thread_by_created;
--- create index if not exists index_thread_by_created on threads (created);
-
-------------------
-
--- create index if not exists user_email_idx on users using hash (email);
--- create index if not exists user_nick_idx on users using hash (nick);
-
--- create index if not exists forum_slug_idx on forums using hash (slug);
-
--- create index if not exists thread_slug_idx on threads using hash (slug);
-
--- drop index if exists index_forum_user_by_forum;
--- create index if not exists forum_users_idx on forum_users (forum_id, user_id);
---------------
-
-
 CREATE INDEX IF NOT EXISTS user_nick_idx ON users (nick);
 CREATE INDEX IF NOT EXISTS user_email_idx ON users USING hash (email); 
 
@@ -338,19 +223,4 @@ CREATE INDEX IF NOT EXISTS forum_users_idx ON forum_users (forum_slug, nick);
 CREATE UNIQUE INDEX IF NOT EXISTS vote ON votes (user_nick, thread_id);
 CREATE UNIQUE INDEX IF NOT EXISTS vote_full ON votes (user_nick, thread_id, vote); 
 
-
--- CREATE INDEX IF NOT EXISTS user_nickname_hash ON users using hash (nick);
--- CREATE INDEX IF NOT EXISTS user_nickname_email ON users (nick, email);
-
--- CREATE INDEX IF NOT EXISTS forum_slug_hash ON forums using hash (slug);
--- CREATE INDEX IF NOT EXISTS thread_slug_hash ON threads using hash (slug); 
-
--- CREATE INDEX IF NOT EXISTS thread_forum_hash ON threads using hash (forum_slug); 
--- CREATE INDEX IF NOT EXISTS thread_forum_created ON threads (forum_slug, created);
-
--- CREATE INDEX IF NOT EXISTS post_thread_path ON posts (thread_id, path);
--- CREATE INDEX IF NOT EXISTS post_path_complex ON posts ((path[1]), path);
-
--- CREATE INDEX IF NOT EXISTS forum_users_forum_hash ON forum_users (forum_id, user_id);
-
-vacuum analyze;
+VACUUM;

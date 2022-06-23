@@ -30,12 +30,12 @@ var postCount = 0
 func NewRepo(conn *pgx.ConnPool) *Repo {
 	conn.Prepare("get_forum_and_thread_by_slug", "SELECT forum_slug, forum_id, id FROM threads WHERE slug=$1")
 	conn.Prepare("get_forum_and_thread_by_id", "SELECT forum_slug, forum_id, id FROM threads WHERE id=$1")
-	conn.Prepare("get_thread_posts_flat", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id>$6) ORDER BY created,id  LIMIT NULLIF($7,0)")
-	conn.Prepare("get_thread_posts_flat_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR id<$6) ORDER BY created DESC,id DESC LIMIT NULLIF($7,0)")
-	conn.Prepare("get_thread_posts_tree", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)")
-	conn.Prepare("get_thread_posts_tree_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)")
-	conn.Prepare("get_thread_posts_parent_tree", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)")
-	conn.Prepare("get_thread_posts_parent_tree_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_flat", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR id>$6) ORDER BY created,id  LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_flat_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id = $2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR id<$6) ORDER BY created DESC,id DESC LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_tree", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_tree_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_parent_tree", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR path > (SELECT path FROM posts WHERE id=$6)) ORDER BY path ASC LIMIT NULLIF($7,0)")
+	conn.Prepare("get_thread_posts_parent_tree_desc", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM posts WHERE ($1!=0 AND thread_id=$2 OR ($3 != '') AND thread_slug=$4) AND ($5=0 OR path < (SELECT path FROM posts WHERE id=$6)) ORDER BY path DESC LIMIT NULLIF($7,0)")
 	conn.Prepare("get_thread_posts_parent_tree_desc_limit", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1] DESC) FROM posts WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] < (SELECT path[1] FROM posts WHERE id=$6))) t WHERE dense_rank<=$7 ORDER BY path[1] desc, path")
 	conn.Prepare("get_thread_posts_parent_tree_limit", "SELECT id, parent_id, author_nick, forum_slug, thread_id, message, created, is_edited FROM (SELECT id, parent_id, path, author_nick, forum_slug, thread_id, message, created, is_edited, dense_rank() OVER(ORDER BY path[1]) FROM posts WHERE ($1 != 0 AND thread_id = $2 OR $3 != '' AND thread_id = (SELECT id FROM threads WHERE slug=$4)) AND ($5=0 OR path[1] > (SELECT path[1] FROM posts WHERE id=$6))) t WHERE dense_rank<=$7 ORDER BY path")
 	conn.Prepare("check_exists_thread", "SELECT exists(SELECT 1 FROM threads WHERE slug =$1 OR id=$2)")
@@ -68,19 +68,19 @@ func (r *Repo) Create(threadSlug string, threadId int, posts []models.Post) ([]m
 		return []models.Post{}, nil
 	}
 	query := strings.Builder{}
-	query.WriteString("INSERT into posts(author_nick, parent_id, message, forum_slug, forum_id, thread_id) VALUES ")
-	fieldCount := 6
+	query.WriteString("INSERT into posts(author_nick, parent_id, message, forum_slug, forum_id, thread_id,thread_slug) VALUES ")
+	fieldCount := 7
 	args := make([]interface{}, 0, len(posts)*fieldCount)
 	i := 0
 	var post models.Post
 	for i, post = range posts[:len(posts)-1] {
-		fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
-		args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
+		fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d),", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6, i*fieldCount+7)
+		args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId, threadSlug)
 		i += 1
 	}
 	post = posts[len(posts)-1]
-	fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6)
-	args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId)
+	fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d) RETURNING id, author_nick, created;", i*fieldCount+1, i*fieldCount+2, i*fieldCount+3, i*fieldCount+4, i*fieldCount+5, i*fieldCount+6, i*fieldCount+7)
+	args = append(args, post.AuthorNick, post.ParentId, post.Message, forumSlug, forumId, threadId, threadSlug)
 	postRows, err := r.Conn.Query(query.String(), args...)
 	defer postRows.Close()
 	if err != nil {

@@ -6,15 +6,15 @@ import (
 
 	"github.com/Natali-Skv/technopark_db_forum/config"
 	"github.com/Natali-Skv/technopark_db_forum/configRouting"
-	forumHandler "github.com/Natali-Skv/technopark_db_forum/internal/forum/delivery/http"
+	forumDelivery "github.com/Natali-Skv/technopark_db_forum/internal/forum/delivery/http"
 	forumRepository "github.com/Natali-Skv/technopark_db_forum/internal/forum/repo"
-	postHandler "github.com/Natali-Skv/technopark_db_forum/internal/post/delivery/http"
+	postDelivery "github.com/Natali-Skv/technopark_db_forum/internal/post/delivery/http"
 	postRepository "github.com/Natali-Skv/technopark_db_forum/internal/post/repo"
-	serviceHandler "github.com/Natali-Skv/technopark_db_forum/internal/service/delivery/http"
+	serviceDelivery "github.com/Natali-Skv/technopark_db_forum/internal/service/delivery/http"
 	serviceRepository "github.com/Natali-Skv/technopark_db_forum/internal/service/repo"
-	threadHandler "github.com/Natali-Skv/technopark_db_forum/internal/thread/delivery/http"
+	threadDelivery "github.com/Natali-Skv/technopark_db_forum/internal/thread/delivery/http"
 	threadRepository "github.com/Natali-Skv/technopark_db_forum/internal/thread/repo"
-	userHandler "github.com/Natali-Skv/technopark_db_forum/internal/user/delivery/http"
+	userDelivery "github.com/Natali-Skv/technopark_db_forum/internal/user/delivery/http"
 	userRepository "github.com/Natali-Skv/technopark_db_forum/internal/user/repo"
 	"github.com/jackc/pgx"
 	"github.com/labstack/echo/v4"
@@ -45,16 +45,17 @@ func main() {
 	e := echo.New()
 	pprof.Register(e)
 	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
 	userRepo := userRepository.NewRepo(connPool)
-	userHandler := userHandler.NewHandler(userRepo)
+	userHandler := userDelivery.NewHandler(userRepo)
 	forumRepo := forumRepository.NewRepo(connPool)
-	forumHandler := forumHandler.NewHandler(forumRepo)
+	forumHandler := forumDelivery.NewHandler(forumRepo)
 	threadRepo := threadRepository.NewRepo(connPool)
-	threadHandler := threadHandler.NewHandler(threadRepo)
+	threadHandler := threadDelivery.NewHandler(threadRepo)
 	postRepo := postRepository.NewRepo(connPool)
-	postHandler := postHandler.NewHandler(postRepo)
+	postHandler := postDelivery.NewHandler(postRepo)
 	servRepo := serviceRepository.NewRepo(connPool)
-	servHandler := serviceHandler.NewHandler(servRepo)
+	servHandler := serviceDelivery.NewHandler(servRepo)
 
 	handlers := configRouting.Handlers{
 		UserHandler:    userHandler,
@@ -64,5 +65,22 @@ func main() {
 		ServiceHandler: servHandler,
 	}
 	handlers.ConfigureRouting(e)
+
+	e.GET("/api/"+"stat", func(ctx echo.Context) error {
+		fmt.Println()
+		fmt.Println("====================")
+		fmt.Println(userDelivery.Statistic)
+		fmt.Println()
+		fmt.Println(forumDelivery.Statistic)
+		fmt.Println()
+		fmt.Println(threadDelivery.Statistic)
+		fmt.Println()
+		fmt.Println(postDelivery.Statistic)
+		fmt.Println()
+		fmt.Println(serviceDelivery.Statistic)
+		fmt.Println("====================")
+		return nil
+	})
+
 	e.Logger.Fatal(e.Start(":5000"))
 }
